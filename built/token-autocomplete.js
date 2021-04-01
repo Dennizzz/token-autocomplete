@@ -6,6 +6,8 @@ var __extends = (this && this.__extends) || (function () {
         return extendStatics(d, b);
     };
     return function (d, b) {
+        if (typeof b !== "function" && b !== null)
+            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
         extendStatics(d, b);
         function __() { this.constructor = d; }
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
@@ -61,9 +63,6 @@ var TokenAutocomplete = /** @class */ (function () {
         }
         this.container = passedContainer;
         this.container.classList.add('token-autocomplete-container');
-        if (!Array.isArray(this.options.initialTokens) && !Array.isArray(this.options.initialSuggestions)) {
-            this.parseTokensAndSuggestions();
-        }
         this.hiddenSelect = document.createElement('select');
         this.hiddenSelect.id = this.container.id + '-select';
         this.hiddenSelect.name = this.options.name;
@@ -91,6 +90,9 @@ var TokenAutocomplete = /** @class */ (function () {
             this.select = new TokenAutocomplete.SearchMultiSelect(this);
         }
         this.autocomplete = new TokenAutocomplete.Autocomplete(this);
+        if (!Array.isArray(this.options.initialTokens) && !Array.isArray(this.options.initialSuggestions)) {
+            this.parseTokensAndSuggestions();
+        }
         this.debug(false);
         var me = this;
         this.textInput.addEventListener('keydown', function (event) {
@@ -106,7 +108,7 @@ var TokenAutocomplete = /** @class */ (function () {
                         me.select.removeTokenWithText(highlightedSuggestion.dataset.text);
                     }
                     else {
-                        me.select.addToken(highlightedSuggestion.dataset.value, highlightedSuggestion.dataset.text, highlightedSuggestion.dataset.type, false);
+                        me.addNameValueToken(highlightedSuggestion.dataset.text);
                     }
                 }
                 else {
@@ -168,7 +170,7 @@ var TokenAutocomplete = /** @class */ (function () {
                 me.autocomplete.clearSuggestions();
                 return;
             }
-            if (Array.isArray(me.options.initialSuggestions)) {
+            if (Array.isArray(me.options.initialSuggestions) && me.getCurrentInput().indexOf(':') < 0) {
                 me.autocomplete.clearSuggestions();
                 me.options.initialSuggestions.forEach(function (suggestion) {
                     if (typeof suggestion !== 'object') {
@@ -278,6 +280,20 @@ var TokenAutocomplete = /** @class */ (function () {
     TokenAutocomplete.prototype.setPlaceholderText = function (placeholderText) {
         this.textInput.dataset.placeholder = placeholderText;
     };
+    /**
+     * Add token as value token
+     * @param text the token name
+     */
+    TokenAutocomplete.prototype.addNameValueToken = function (text) {
+        var _a;
+        this.setCurrentInput(text + ':', false);
+        var range = document.createRange();
+        var sel = window.getSelection();
+        range.setStart(this.textInput.childNodes[0], ((_a = this.textInput.childNodes[0].textContent) === null || _a === void 0 ? void 0 : _a.length) || 0);
+        range.collapse(true);
+        sel === null || sel === void 0 ? void 0 : sel.removeAllRanges();
+        sel === null || sel === void 0 ? void 0 : sel.addRange(range);
+    };
     TokenAutocomplete.prototype.debug = function (state) {
         if (state) {
             this.log = console.log.bind(window.console);
@@ -328,6 +344,7 @@ var TokenAutocomplete = /** @class */ (function () {
                     option.dataset.type = tokenType;
                 }
                 this.parent.hiddenSelect.add(option);
+                this.parent.hiddenSelect.dispatchEvent(new Event('change'));
                 var addedToken = {
                     value: tokenValue,
                     text: tokenText,
@@ -347,7 +364,7 @@ var TokenAutocomplete = /** @class */ (function () {
                         }
                     }));
                 }
-                this.parent.log('added token', addedToken);
+                //this.parent.log('added token', addedToken);
             };
             /**
              * Completely clears the currently present tokens from the field.
@@ -383,6 +400,7 @@ var TokenAutocomplete = /** @class */ (function () {
                 var tokenText = token.dataset.text;
                 var hiddenOption = this.parent.hiddenSelect.querySelector('option[data-text="' + tokenText + '"]');
                 (_a = hiddenOption === null || hiddenOption === void 0 ? void 0 : hiddenOption.parentElement) === null || _a === void 0 ? void 0 : _a.removeChild(hiddenOption);
+                this.parent.hiddenSelect.dispatchEvent(new Event('change'));
                 var addedToken = {
                     value: token.dataset.value,
                     text: tokenText,
@@ -396,7 +414,7 @@ var TokenAutocomplete = /** @class */ (function () {
                         }
                     }));
                 }
-                this.parent.log('removed token', token.textContent);
+                //this.parent.log('removed token', token.textContent);
             };
             class_1.prototype.removeTokenWithText = function (tokenText) {
                 if (tokenText === null) {
@@ -566,7 +584,7 @@ var TokenAutocomplete = /** @class */ (function () {
                         me.parent.select.removeTokenWithText(suggestion.text);
                     }
                     else {
-                        me.parent.select.addToken(value, suggestion.text, suggestion.type, false);
+                        me.parent.addNameValueToken(suggestion.text);
                     }
                     me.clearSuggestions();
                     me.hideSuggestions();

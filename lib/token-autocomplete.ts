@@ -118,7 +118,7 @@ class TokenAutocomplete {
     log: any;
 
     constructor(options: Options) {
-        this.options = {...this.defaults, ...options};
+        this.options = { ...this.defaults, ...options };
 
         let passedContainer = document.querySelector(this.options.selector);
         if (!passedContainer) {
@@ -127,10 +127,6 @@ class TokenAutocomplete {
 
         this.container = passedContainer;
         this.container.classList.add('token-autocomplete-container');
-
-        if (!Array.isArray(this.options.initialTokens) && !Array.isArray(this.options.initialSuggestions)) {
-            this.parseTokensAndSuggestions();
-        }
 
         this.hiddenSelect = document.createElement('select');
         this.hiddenSelect.id = this.container.id + '-select';
@@ -161,6 +157,10 @@ class TokenAutocomplete {
         }
         this.autocomplete = new TokenAutocomplete.Autocomplete(this);
 
+        if (!Array.isArray(this.options.initialTokens) && !Array.isArray(this.options.initialSuggestions)) {
+            this.parseTokensAndSuggestions();
+        }
+
         this.debug(false);
 
         let me = this;
@@ -180,7 +180,7 @@ class TokenAutocomplete {
                     if (highlightedSuggestion.classList.contains('token-autocomplete-suggestion-active')) {
                         me.select.removeTokenWithText(highlightedSuggestion.dataset.text);
                     } else {
-                        me.select.addToken(highlightedSuggestion.dataset.value, highlightedSuggestion.dataset.text, highlightedSuggestion.dataset.type, false);
+                        me.addNameValueToken(highlightedSuggestion.dataset.text);
                     }
                 } else {
                     me.select.handleInputAsValue(me.getCurrentInput());
@@ -241,14 +241,14 @@ class TokenAutocomplete {
                 me.autocomplete.clearSuggestions();
                 return;
             }
-            if (Array.isArray(me.options.initialSuggestions)) {
+            if (Array.isArray(me.options.initialSuggestions) && me.getCurrentInput().indexOf(':') < 0) {
                 me.autocomplete.clearSuggestions();
                 me.options.initialSuggestions.forEach(function (suggestion) {
                     if (typeof suggestion !== 'object') {
                         // the suggestion is of wrong type and therefore ignored
                         return;
                     }
-                    if (value.localeCompare(suggestion.text.slice(0, value.length), undefined, {sensitivity: 'base'}) === 0) {
+                    if (value.localeCompare(suggestion.text.slice(0, value.length), undefined, { sensitivity: 'base' }) === 0) {
                         // The suggestion starts with the query text the user entered and will be displayed
                         me.autocomplete.addSuggestion(suggestion);
                     }
@@ -284,7 +284,7 @@ class TokenAutocomplete {
         options.forEach(function (option) {
             if (option.text != null) {
                 if (option.hasAttribute('selected')) {
-                    initialTokens.push({value: option.value, text: option.text, type: null});
+                    initialTokens.push({ value: option.value, text: option.text, type: null });
                 }
                 initialSuggestions.push({
                     id: null,
@@ -363,6 +363,22 @@ class TokenAutocomplete {
         this.textInput.dataset.placeholder = placeholderText;
     }
 
+    /**
+     * Add token as value token
+     * @param text the token name
+     */
+    addNameValueToken(text: string) {
+        this.setCurrentInput(text + ':', false);
+        let range = document.createRange();
+        let sel = window.getSelection();
+
+        range.setStart(this.textInput.childNodes[0], this.textInput.childNodes[0].textContent?.length || 0);
+        range.collapse(true);
+
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+    }
+
     debug(state: boolean) {
         if (state) {
             this.log = console.log.bind(window.console);
@@ -418,6 +434,7 @@ class TokenAutocomplete {
                 option.dataset.type = tokenType;
             }
             this.parent.hiddenSelect.add(option);
+            this.parent.hiddenSelect.dispatchEvent(new Event('change'))
 
             let addedToken = {
                 value: tokenValue,
@@ -443,7 +460,7 @@ class TokenAutocomplete {
                 }));
             }
 
-            this.parent.log('added token', addedToken);
+            //this.parent.log('added token', addedToken);
         }
 
         /**
@@ -481,6 +498,7 @@ class TokenAutocomplete {
             let tokenText = token.dataset.text;
             let hiddenOption = this.parent.hiddenSelect.querySelector('option[data-text="' + tokenText + '"]');
             hiddenOption?.parentElement?.removeChild(hiddenOption);
+            this.parent.hiddenSelect.dispatchEvent(new Event('change'))
 
             let addedToken = {
                 value: token.dataset.value,
@@ -497,7 +515,7 @@ class TokenAutocomplete {
                 }));
             }
 
-            this.parent.log('removed token', token.textContent);
+            //this.parent.log('removed token', token.textContent);
         }
 
         removeTokenWithText(tokenText: string | null) {
@@ -694,7 +712,7 @@ class TokenAutocomplete {
                 if (element.classList.contains('token-autocomplete-suggestion-active')) {
                     me.parent.select.removeTokenWithText(suggestion.text);
                 } else {
-                    me.parent.select.addToken(value, suggestion.text, suggestion.type, false);
+                    me.parent.addNameValueToken(suggestion.text);
                 }
                 me.clearSuggestions();
                 me.hideSuggestions();
